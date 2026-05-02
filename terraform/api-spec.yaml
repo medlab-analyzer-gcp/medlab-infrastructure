@@ -1,0 +1,211 @@
+swagger: "2.0"
+info:
+  title: medlab-analyzer-api
+  description: Medical Lab Analyzer - API Gateway
+  version: "1.0.0"
+host: "medlab-analyzer-api.apigateway.swe455-medlab.cloud.goog"
+basePath: "/"
+schemes:
+  - https
+produces:
+  - application/json
+consumes:
+  - application/json
+
+paths:
+
+  /reports:
+    options:
+      operationId: corsReports
+      parameters: []
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    post:
+      operationId: uploadReport
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+      responses:
+        "201":
+          description: Report uploaded
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    get:
+      operationId: listReports
+      parameters:
+        - in: query
+          name: userId
+          type: string
+      responses:
+        "200":
+          description: List of reports
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /reports/{id}:
+    options:
+      operationId: corsReportById
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    get:
+      operationId: getReport
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Report details
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    delete:
+      operationId: deleteReport
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Report deleted
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /reports/{id}/file-url:
+    options:
+      operationId: corsFileUrl
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    get:
+      operationId: getFileUrl
+      parameters:
+        - in: path
+          name: id
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Presigned URL
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /analyze-request:
+    options:
+      operationId: corsAnalyzeRequest
+      parameters: []
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    post:
+      operationId: queueAnalysis
+      parameters:
+        - in: body
+          name: body
+          schema:
+            type: object
+      responses:
+        "202":
+          description: Analysis queued
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /health:
+    get:
+      operationId: healthCheck
+      parameters: []
+      responses:
+        "200":
+          description: Healthy
+      x-google-backend:
+        address: ${report_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /analyze/{analysisId}:
+    options:
+      operationId: corsAnalysisById
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          type: string
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${analysis_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    get:
+      operationId: getAnalysis
+      parameters:
+        - in: path
+          name: analysisId
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Analysis details
+      x-google-backend:
+        address: ${analysis_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+
+  /analyze/report/{reportId}:
+    options:
+      operationId: corsAnalysisByReport
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          type: string
+      responses:
+        "204":
+          description: CORS preflight
+      x-google-backend:
+        address: ${analysis_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS
+    get:
+      operationId: getAnalysisByReport
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          type: string
+      responses:
+        "200":
+          description: Analysis for report
+      x-google-backend:
+        address: ${analysis_service_url}
+        path_translation: APPEND_PATH_TO_ADDRESS

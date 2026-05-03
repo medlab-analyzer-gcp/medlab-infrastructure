@@ -28,13 +28,13 @@ Users can upload medical lab reports, manually enter blood test values, and rece
 
 This project is split across **5 independent repositories**, each with its own CI/CD pipeline:
 
-| Repository                                        | Purpose                                             | Technology      |
-| ------------------------------------------------- | --------------------------------------------------- | --------------- |
-| **medlab-infrastructure** (this repo)             | Terraform IaC, deployment scripts, documentation    | Terraform, PS1  |
-| **medlab-report-service**                         | File upload, report management, Pub/Sub publisher   | Node.js, Docker |
-| **medlab-analysis-service**                       | Lab analysis engine, Pub/Sub subscriber             | Node.js, Docker |
-| **medlab-ws-service**                             | WebSocket server for real-time notifications        | Node.js, Docker |
-| **medlab-frontend**                               | React SPA with Firebase Auth                        | React, Vite     |
+| Repository                            | Purpose                                           | Technology      |
+| ------------------------------------- | ------------------------------------------------- | --------------- |
+| **medlab-infrastructure** (this repo) | Terraform IaC, deployment scripts, documentation  | Terraform, PS1  |
+| **medlab-report-service**             | File upload, report management, Pub/Sub publisher | Node.js, Docker |
+| **medlab-analysis-service**           | Lab analysis engine, Pub/Sub subscriber           | Node.js, Docker |
+| **medlab-ws-service**                 | WebSocket server for real-time notifications      | Node.js, Docker |
+| **medlab-frontend**                   | React SPA with Firebase Auth                      | React, Vite     |
 
 Each service repository contains its own `cloudbuild.yaml` for automated CI/CD on push to main.
 
@@ -73,11 +73,13 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 ### Flow
 
 **Upload Path:**
+
 ```
 1. User uploads PDF → API Gateway → report-service → Cloud Storage + Firestore
 ```
 
 **Analyze Path:**
+
 ```
 1. User clicks Analyze → browser opens WebSocket directly to ws-service
 2. ws-service sets up Firestore onSnapshot listener for this user
@@ -91,6 +93,7 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 ```
 
 **Get Results Path:**
+
 ```
 1. User clicks View Results → GET /analyze/{analysisId} → API Gateway → analysis-service → Firestore
 ```
@@ -99,23 +102,23 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 
 ## 15-Factor Compliance
 
-| Factor               | Implementation                                                                                                                                          |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Codebase          | 5 independent Git repositories, one per service/infrastructure                                                                                          |
-| 2. Dependencies      | `package.json` + `package-lock.json` + Docker containers                                                                                                |
-| 3. Configuration     | Environment variables via Terraform and `.env` files                                                                                                    |
-| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub - all configurable and swappable                                                                                      |
-| 5. Build/Release/Run | Cloud Build CI/CD - automated build and deploy on push to main                                                                                          |
-| 6. Processes         | Stateless Cloud Run services (containers can be destroyed/recreated anytime)                                                                            |
-| 7. Port Binding      | Self-contained Express HTTP servers, port binding via environment variable                                                                              |
-| 8. Concurrency       | Cloud Run auto-scaling (0-100 instances per service); ws-service scales horizontally via Firestore onSnapshot                                           |
-| 9. Disposability     | Fast startup (<5s), SIGTERM graceful shutdown                                                                                                           |
-| 10. Dev/Prod Parity  | Same Terraform code, different `.tfvars` files (dev/prod)                                                                                               |
-| 11. Logs             | Winston logger → stdout → Cloud Logging (structured JSON logs)                                                                                          |
-| 12. Admin Processes  | One-off Cloud Run jobs (can run any admin task in same environment)                                                                                     |
-| 13. API First        | RESTful APIs with OpenAPI 2.0 spec, API Gateway enforces contract                                                                                       |
-| 14. Telemetry        | Cloud Logging + Cloud Monitoring + health endpoints (`/health`)                                                                                         |
-| 15. Auth/Authz       | Firebase Auth (user authentication) + GCP IAM (service accounts and permissions)                                                                        |
+| Factor               | Implementation                                                                                                |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 1. Codebase          | 5 independent Git repositories, one per service/infrastructure                                                |
+| 2. Dependencies      | `package.json` + `package-lock.json` + Docker containers                                                      |
+| 3. Configuration     | Environment variables via Terraform and `.env` files                                                          |
+| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub - all configurable and swappable                                            |
+| 5. Build/Release/Run | Cloud Build CI/CD - automated build and deploy on push to main                                                |
+| 6. Processes         | Stateless Cloud Run services (containers can be destroyed/recreated anytime)                                  |
+| 7. Port Binding      | Self-contained Express HTTP servers, port binding via environment variable                                    |
+| 8. Concurrency       | Cloud Run auto-scaling (0-100 instances per service); ws-service scales horizontally via Firestore onSnapshot |
+| 9. Disposability     | Fast startup (<5s), SIGTERM graceful shutdown                                                                 |
+| 10. Dev/Prod Parity  | Same Terraform code, different `.tfvars` files (dev/prod)                                                     |
+| 11. Logs             | Winston logger → stdout → Cloud Logging (structured JSON logs)                                                |
+| 12. Admin Processes  | One-off Cloud Run jobs (can run any admin task in same environment)                                           |
+| 13. API First        | RESTful APIs with OpenAPI 2.0 spec, API Gateway enforces contract                                             |
+| 14. Telemetry        | Cloud Logging + Cloud Monitoring + health endpoints (`/health`)                                               |
+| 15. Auth/Authz       | Firebase Auth (user authentication) + GCP IAM (service accounts and permissions)                              |
 
 **Full Documentation:** See [docs/15-FACTOR-COMPLIANCE.md](docs/15-FACTOR-COMPLIANCE.md) for detailed implementation evidence and code examples.
 
@@ -124,6 +127,7 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 ## Technology Stack
 
 ### Infrastructure & Platform
+
 - **Cloud Platform:** Google Cloud Platform (GCP)
 - **IaC:** Terraform
 - **Container Orchestration:** Cloud Run (serverless containers)
@@ -131,6 +135,7 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 - **Container Registry:** Artifact Registry
 
 ### Backend Services
+
 - **Runtime:** Node.js 20
 - **Framework:** Express.js
 - **Logging:** Winston
@@ -138,12 +143,14 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 - **Language:** JavaScript (ES6+)
 
 ### Data & Messaging
+
 - **Database:** Cloud Firestore (NoSQL document store)
 - **File Storage:** Cloud Storage
 - **Message Queue:** Cloud Pub/Sub (event-driven architecture)
 - **Real-time:** WebSocket (ws package) + Firestore onSnapshot
 
 ### Frontend
+
 - **Framework:** React 18
 - **Build Tool:** Vite
 - **Auth:** Firebase Authentication
@@ -151,6 +158,7 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 - **WebSocket:** Native WebSocket API
 
 ### API & Networking
+
 - **API Gateway:** GCP API Gateway (OpenAPI 2.0)
 - **Protocol:** HTTPS (REST) + WebSocket (WS)
 - **CORS:** Enabled on all services
@@ -220,17 +228,20 @@ region      = "us-central1"
 From the `medlab-infrastructure` directory:
 
 **Windows (PowerShell):**
+
 ```powershell
 .\scripts\deploy.ps1 -ProjectId "YOUR-PROJECT-ID"
 ```
 
 **Linux/Mac:**
+
 ```bash
 chmod +x scripts/*.sh
 ./scripts/deploy.sh YOUR-PROJECT-ID
 ```
 
 This script will:
+
 - Initialize Terraform
 - Apply infrastructure (Cloud Run, Firestore, Storage, Pub/Sub, API Gateway)
 - Create Cloud Build triggers for all 5 repositories
@@ -274,11 +285,13 @@ npm run dev
 ### Automated Deployments
 
 Once Cloud Build triggers are configured, any push to `main` branch in service repositories will automatically:
+
 1. Build Docker image
 2. Push to Artifact Registry
 3. Deploy to Cloud Run
 
 **Trigger a deployment:**
+
 ```bash
 cd medlab-report-service
 git commit -m "Update service"
@@ -328,6 +341,7 @@ medlab-infrastructure/
 Each service has its own repository with this structure:
 
 **medlab-report-service/**
+
 ```
 ├── src/                           # Source code
 ├── Dockerfile                     # Container definition
@@ -338,6 +352,7 @@ Each service has its own repository with this structure:
 ```
 
 **medlab-analysis-service/**
+
 ```
 ├── src/                           # Source code + analyzer logic
 ├── Dockerfile
@@ -348,6 +363,7 @@ Each service has its own repository with this structure:
 ```
 
 **medlab-ws-service/**
+
 ```
 ├── src/                           # WebSocket handlers
 ├── Dockerfile
@@ -358,6 +374,7 @@ Each service has its own repository with this structure:
 ```
 
 **medlab-frontend/**
+
 ```
 ├── src/
 │   ├── pages/                     # Upload, History, Analyze
@@ -449,12 +466,12 @@ gcloud builds log <BUILD_ID>
 
 ## Documentation
 
-| Document                                                              | Description                                        |
-| --------------------------------------------------------------------- | -------------------------------------------------- |
-| [15-FACTOR-COMPLIANCE.md](docs/15-FACTOR-COMPLIANCE.md)               | Complete 15-Factor methodology implementation      |
-| [API.md](docs/API.md)                                                 | Full API reference with examples                   |
-| [AI_DEVELOPMENT_LOG.md](AI_DEVELOPMENT_LOG.md)                        | Transparent AI usage log                           |
-| [terraform/cloudbuild-triggers.tf](terraform/cloudbuild-triggers.tf)  | CI/CD trigger definitions                          |
+| Document                                                             | Description                                   |
+| -------------------------------------------------------------------- | --------------------------------------------- |
+| [15-FACTOR-COMPLIANCE.md](docs/15-FACTOR-COMPLIANCE.md)              | Complete 15-Factor methodology implementation |
+| [API.md](docs/API.md)                                                | Full API reference with examples              |
+| [AI_DEVELOPMENT_LOG.md](AI_DEVELOPMENT_LOG.md)                       | Transparent AI usage log                      |
+| [terraform/cloudbuild-triggers.tf](terraform/cloudbuild-triggers.tf) | CI/CD trigger definitions                     |
 
 ---
 
@@ -486,6 +503,7 @@ curl https://YOUR_GATEWAY_URL/health
 ```
 
 This demonstrates:
+
 - **Factor 5 (Build/Release/Run):** Automated deployment
 - **Factor 10 (Dev/Prod Parity):** Same infrastructure code for all environments
 - **Complete IaC:** No manual configuration required
@@ -497,21 +515,25 @@ This demonstrates:
 ### Why 5 Separate Repositories?
 
 **Independent Deployment Cycles**
+
 - Each service can be updated without affecting others
 - Faster CI/CD (only rebuild what changed)
 - Reduced risk of breaking other services
 
 **Clear Service Boundaries**
+
 - Each repository owns one service
 - No accidental dependencies between services
 - Easier code reviews (smaller, focused changes)
 
 **Scalable Team Structure**
+
 - Different teams can own different services
 - Independent release schedules
 - Parallel development without merge conflicts
 
 **CI/CD Efficiency**
+
 - Push to `medlab-report-service` → only report service rebuilds
 - Infrastructure changes don't trigger service rebuilds
 - Faster feedback loops
@@ -535,6 +557,7 @@ This project was developed with assistance from **Claude Code (Claude Sonnet 4.6
 ### AI Usage
 
 **What AI Helped With:**
+
 - Initial Terraform configuration structure
 - Cloud Build CI/CD pipeline setup
 - Debugging deployment issues (PowerShell, gcloud commands)
@@ -542,6 +565,7 @@ This project was developed with assistance from **Claude Code (Claude Sonnet 4.6
 - Documentation formatting
 
 **What Students Did:**
+
 - All design decisions (architecture, service separation, event-driven design)
 - Writing and debugging service logic
 - Understanding cloud concepts and implementing 15-Factor methodology
@@ -551,12 +575,14 @@ This project was developed with assistance from **Claude Code (Claude Sonnet 4.6
 ### Full Transparency Log
 
 See [AI_DEVELOPMENT_LOG.md](AI_DEVELOPMENT_LOG.md) for:
+
 - Complete log of all AI interactions
 - Questions asked and answers received
 - Problems encountered and how they were solved
 - What was learned from each interaction
 
 This transparency demonstrates:
+
 - ✅ Ethical AI use as a learning tool
 - ✅ Student agency in design and implementation
 - ✅ Understanding of cloud concepts (not just copying code)
@@ -564,15 +590,10 @@ This transparency demonstrates:
 
 ---
 
-## License
-
-MIT License - See LICENSE file for details
-
----
-
 ## Contact
 
 **Students:**
+
 - Budoor Basaleh
 - Aishah Algharib
 

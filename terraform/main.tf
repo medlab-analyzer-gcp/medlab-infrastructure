@@ -135,11 +135,12 @@ resource "google_storage_bucket" "logs_bucket" {
 # ==============================================================================
 
 resource "google_firestore_database" "medlab_database" {
-  project     = var.project_id
-  name        = "(default)"
-  location_id = "nam5" # North America multi-region
-  type        = "FIRESTORE_NATIVE"
-  
+  project           = var.project_id
+  name              = "(default)"
+  location_id       = "nam5"
+  type              = "FIRESTORE_NATIVE"
+  deletion_policy   = "DELETE"
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -174,6 +175,13 @@ resource "google_storage_bucket_iam_member" "report_service_storage_admin" {
   bucket = google_storage_bucket.reports_bucket.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.report_service_sa.email}"
+}
+
+# Required for generating signed URLs in Cloud Run
+resource "google_service_account_iam_member" "report_service_token_creator" {
+  service_account_id = google_service_account.report_service_sa.name
+  role               = "roles/iam.serviceAccountTokenCreator"
+  member             = "serviceAccount:${google_service_account.report_service_sa.email}"
 }
 
 # Grant Report Service access to Firestore

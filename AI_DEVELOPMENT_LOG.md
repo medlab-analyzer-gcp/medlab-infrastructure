@@ -306,12 +306,69 @@ resource "google_cloud_run_v2_service_iam_member" "pubsub_invoker" {
 
 ---
 
+## Prompt 11: Cloud Build Service Account Missing Permissions for Terraform
+
+**User:**
+
+```
+The infrastructure Cloud Build trigger runs terraform apply on every push,
+but it keeps failing with 403 permission errors on different resources.
+```
+
+**AI Response:**
+
+```
+When Cloud Build runs terraform apply, it runs as the medlab-cloudbuild
+service account — not as your personal GCP account. Your personal account
+has Owner permissions so local runs always work, but Cloud Build only has
+the permissions you explicitly grant it. Terraform needs broad permissions
+to manage IAM bindings, enable APIs, create Cloud Run services, manage
+Pub/Sub, logging sinks, and API Gateway.
+```
+
+**Problems & Fixes:**
+
+- First run: 403 on IAM bindings → added `roles/resourcemanager.projectIamAdmin`
+- Second run: 403 on listing services → added `roles/serviceusage.serviceUsageAdmin`
+- Third run: 403 on Pub/Sub IAM → added `roles/pubsub.admin`
+- Fourth run: 403 on logging sink → added `roles/logging.admin`
+- Pattern identified: chasing individual roles one by one is not practical
+- Final fix: granted `roles/owner` to the Cloud Build service account — Terraform can now manage all resources without permission errors
+
+---
+
+## Prompt 12: Signed URL Generation Failing for File Downloads
+
+**User:**
+
+```
+After deploying, the history page shows "Failed to get file URL" with a 500
+error when trying to download a report. The services are healthy and running.
+```
+
+**AI Response:**
+
+```
+The root cause is a missing IAM permission. Cloud Run generates temporary
+signed URLs for files stored in Cloud Storage. Signing a URL requires the
+service account to call the Google IAM signBlob API, which requires the
+roles/iam.serviceAccountTokenCreator role on itself. Without it, the signing
+step fails and returns a 500 error to the client.
+```
+
+**Problems & Fixes:**
+
+- report-service returned 500 on GET /reports/{id}/file-url → traced to signed URL generation failure
+- Added `roles/iam.serviceAccountTokenCreator` to the report-service service account in Terraform → file downloads working
+
+---
+
 ## Ethical Use Statement
 
-I used Claude Code as:
+We used Claude Code as:
 
 - **Implementation assistant** for GCP, Terraform, and cloud configurations
 - **Debugging partner** for identifying root causes of errors
-- **Learning tool** — I asked conceptual questions to understand WHY before implementing
+- **Learning tool** — we asked conceptual questions to understand WHY before implementing
 
 All architectural decisions were made by us.

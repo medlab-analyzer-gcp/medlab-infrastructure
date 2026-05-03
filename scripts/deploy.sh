@@ -120,6 +120,12 @@ log_success "Terraform initialized"
 log_step "[5/6] Applying Terraform infrastructure"
 log_warn "This may take 10-15 minutes due to API Gateway provisioning..."
 
+# Firestore cannot be deleted in GCP — import it if it already exists
+if gcloud firestore databases describe --database="(default)" --project=$PROJECT_ID &>/dev/null; then
+    log_info "Firestore already exists, importing into Terraform state..."
+    terraform import google_firestore_database.medlab_database "projects/$PROJECT_ID/databases/(default)" 2>/dev/null || true
+fi
+
 terraform apply -var-file="environments/$ENVIRONMENT.tfvars" -auto-approve
 
 REPORT_URL=$(terraform output -raw report_service_url)

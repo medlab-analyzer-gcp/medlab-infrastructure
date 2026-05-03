@@ -58,14 +58,6 @@ Write-Host ""
 Write-Host "  WARNING: This will permanently destroy ALL resources!" -ForegroundColor Red
 Write-Host ""
 
-if (-not $Force) {
-    $confirmation = Read-Host "Type 'yes' to continue"
-    if ($confirmation -ne "yes") {
-        Log-Warn "Aborted by user."
-        exit 0
-    }
-}
-
 # Step 1: Set GCP Project
 Log-Step "[1/6] Setting GCP project"
 gcloud config set project $ProjectId

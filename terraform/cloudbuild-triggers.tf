@@ -60,6 +60,12 @@ resource "google_project_iam_member" "cloudbuild_service_usage" {
   member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
 }
 
+resource "google_project_iam_member" "cloudbuild_pubsub_admin" {
+  project = var.project_id
+  role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
 # Infrastructure trigger — runs terraform apply on push
 resource "google_cloudbuild_trigger" "infrastructure" {
   name            = "medlab-infrastructure-trigger"

@@ -42,6 +42,24 @@ resource "google_project_iam_member" "cloudbuild_log_writer" {
   member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
 }
 
+resource "google_project_iam_member" "cloudbuild_editor" {
+  project = var.project_id
+  role    = "roles/editor"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_iam_admin" {
+  project = var.project_id
+  role    = "roles/resourcemanager.projectIamAdmin"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_service_usage" {
+  project = var.project_id
+  role    = "roles/serviceusage.serviceUsageAdmin"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
 # Infrastructure trigger — runs terraform apply on push
 resource "google_cloudbuild_trigger" "infrastructure" {
   name            = "medlab-infrastructure-trigger"

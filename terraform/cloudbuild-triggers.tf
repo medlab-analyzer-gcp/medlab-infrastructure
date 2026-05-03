@@ -4,47 +4,125 @@
 # Each repo has its own trigger — push to main = auto build and deploy
 # ==============================================================================
 
-locals {
-  triggers = {
-    "medlab-infrastructure-trigger"   = "medlab-infrastructure"
-    "medlab-report-service-trigger"   = "medlab-report-service"
-    "medlab-analysis-service-trigger" = "medlab-analysis-service"
-    "medlab-ws-service-trigger"       = "medlab-ws-service"
-    "medlab-frontend-trigger"         = "medlab-frontend"
-  }
+# Service account for Cloud Build triggers (required by org policy)
+resource "google_service_account" "cloudbuild_sa" {
+  account_id   = "medlab-cloudbuild"
+  display_name = "Cloud Build Service Account"
+  project      = var.project_id
 }
 
-resource "null_resource" "cloudbuild_triggers" {
-  for_each = local.triggers
+# Grant Cloud Build SA necessary permissions
+resource "google_project_iam_member" "cloudbuild_builder" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
 
-  triggers = {
-    project_id = var.project_id
-    name       = each.key
-    repo       = each.value
+resource "google_project_iam_member" "cloudbuild_run_admin" {
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_sa_user" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountUser"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_artifact_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+# Infrastructure trigger — runs terraform apply on push
+resource "google_cloudbuild_trigger" "infrastructure" {
+  name            = "medlab-infrastructure-trigger"
+  project         = var.project_id
+  service_account = google_service_account.cloudbuild_sa.id
+
+  github {
+    owner = "medlab-analyzer-gcp"
+    name  = "medlab-infrastructure"
+    push {
+      branch = "^main$"
+    }
   }
 
-  provisioner "local-exec" {
-    interpreter = ["PowerShell", "-Command"]
-    command     = <<-EOT
-      $exists = gcloud builds triggers describe ${each.key} --region=global --project=${var.project_id} 2>&1
-      if ($LASTEXITCODE -ne 0) {
-        gcloud builds triggers create github `
-          --name=${each.key} `
-          --repo-name=${each.value} `
-          --repo-owner=medlab-analyzer-gcp `
-          --branch-pattern="^main$" `
-          --build-config=cloudbuild.yaml `
-          --region=global `
-          --project=${var.project_id}
-      } else {
-        Write-Host "${each.key} already exists, skipping"
-      }
-    EOT
+  filename = "cloudbuild.yaml"
+}
+
+# Report service trigger
+resource "google_cloudbuild_trigger" "report_service" {
+  name            = "medlab-report-service-trigger"
+  project         = var.project_id
+  service_account = google_service_account.cloudbuild_sa.id
+
+  github {
+    owner = "medlab-analyzer-gcp"
+    name  = "medlab-report-service"
+    push {
+      branch = "^main$"
+    }
   }
 
-  provisioner "local-exec" {
-    when        = destroy
-    interpreter = ["PowerShell", "-Command"]
-    command     = "gcloud builds triggers delete ${each.key} --region=global --project=${self.triggers.project_id} --quiet 2>&1 | Out-Null"
+  filename = "cloudbuild.yaml"
+}
+
+# Analysis service trigger
+resource "google_cloudbuild_trigger" "analysis_service" {
+  name            = "medlab-analysis-service-trigger"
+  project         = var.project_id
+  service_account = google_service_account.cloudbuild_sa.id
+
+  github {
+    owner = "medlab-analyzer-gcp"
+    name  = "medlab-analysis-service"
+    push {
+      branch = "^main$"
+    }
   }
+
+  filename = "cloudbuild.yaml"
+}
+
+# WS service trigger
+resource "google_cloudbuild_trigger" "ws_service" {
+  name            = "medlab-ws-service-trigger"
+  project         = var.project_id
+  service_account = google_service_account.cloudbuild_sa.id
+
+  github {
+    owner = "medlab-analyzer-gcp"
+    name  = "medlab-ws-service"
+    push {
+      branch = "^main$"
+    }
+  }
+
+  filename = "cloudbuild.yaml"
+}
+
+# Frontend trigger
+resource "google_cloudbuild_trigger" "frontend" {
+  name            = "medlab-frontend-trigger"
+  project         = var.project_id
+  service_account = google_service_account.cloudbuild_sa.id
+
+  github {
+    owner = "medlab-analyzer-gcp"
+    name  = "medlab-frontend"
+    push {
+      branch = "^main$"
+    }
+  }
+
+  filename = "cloudbuild.yaml"
 }

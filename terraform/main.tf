@@ -59,6 +59,21 @@ resource "google_project_service" "required_apis" {
 }
 
 # ==============================================================================
+# Artifact Registry Repository
+# ==============================================================================
+
+resource "google_artifact_registry_repository" "medlab_repo" {
+  provider      = google
+  project       = var.project_id
+  location      = var.region
+  repository_id = "medlab-repo"
+  format        = "DOCKER"
+  description   = "Medical Lab Analyzer container images"
+
+  depends_on = [google_project_service.required_apis]
+}
+
+# ==============================================================================
 # Cloud Storage Bucket for Reports
 # ==============================================================================
 

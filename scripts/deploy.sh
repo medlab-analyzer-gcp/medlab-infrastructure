@@ -89,23 +89,7 @@ done
 log_success "All APIs enabled"
 
 #===============================================================================
-# Step 3: Create Artifact Registry Repository
-#===============================================================================
-
-log_step "[3/10] Creating Artifact Registry repository"
-
-if gcloud artifacts repositories describe $REPO_NAME --location=$REGION &>/dev/null; then
-    log_info "Repository already exists, skipping"
-else
-    gcloud artifacts repositories create $REPO_NAME \
-        --repository-format=docker \
-        --location=$REGION \
-        --description="Medical Lab Analyzer container images"
-    log_success "Artifact Registry repository created"
-fi
-
-#===============================================================================
-# Step 4: Create Terraform State Bucket
+# Step 3: Create Terraform State Bucket
 #===============================================================================
 
 log_step "[4/10] Creating Terraform state bucket"

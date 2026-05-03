@@ -83,22 +83,7 @@ foreach ($api in $apis) {
 
 Log-Success "All APIs enabled"
 
-# Step 3: Create Artifact Registry Repository
-Log-Step "[3/9] Creating Artifact Registry repository"
-
-$repoCheck = gcloud artifacts repositories describe $RepoName --location=$Region 2>&1
-if ($LASTEXITCODE -eq 0) {
-    Log-Info "Repository already exists, skipping"
-} else {
-    gcloud artifacts repositories create $RepoName `
-        --repository-format=docker `
-        --location=$Region `
-        --description="Medical Lab Analyzer container images"
-    if ($LASTEXITCODE -ne 0) { Log-Error "Failed to create Artifact Registry"; exit 1 }
-    Log-Success "Artifact Registry repository created"
-}
-
-# Step 4: Build Docker Images
+# Step 3: Build Docker Images
 Log-Step "[4/9] Building Docker images"
 
 gcloud auth configure-docker "$Region-docker.pkg.dev" --quiet

@@ -1,0 +1,37 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s
+
+steps:
+  # Initialize Terraform
+  - name: "hashicorp/terraform:1.5.0"
+    id: "terraform-init"
+    entrypoint: "terraform"
+    args:
+      - "init"
+      - "-backend-config=bucket=$PROJECT_ID-terraform-state"
+    dir: "terraform"
+
+  # Validate Terraform configuration
+  - name: "hashicorp/terraform:1.5.0"
+    id: "terraform-validate"
+    entrypoint: "terraform"
+    args:
+      - "validate"
+    dir: "terraform"
+    waitFor: ["terraform-init"]
+
+  # Apply Terraform infrastructure
+  - name: "hashicorp/terraform:1.5.0"
+    id: "terraform-apply"
+    entrypoint: "terraform"
+    args:
+      - "apply"
+      - "-var-file=environments/${_ENVIRONMENT}.tfvars"
+      - "-auto-approve"
+    dir: "terraform"
+    waitFor: ["terraform-validate"]
+
+substitutions:
+  _ENVIRONMENT: "dev"

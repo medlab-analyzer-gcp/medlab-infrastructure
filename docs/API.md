@@ -1,19 +1,19 @@
 # Medical Lab Analyzer — API Reference
 
-|              |                                         |
-| ------------ | --------------------------------------- |
-| **Version**  | 1.0.0                                   |
-| **Gateway**  | GCP API Gateway                         |
-| **Protocol** | HTTPS (REST) + WebSocket                |
+|              |                          |
+| ------------ | ------------------------ |
+| **Version**  | 1.0.0                    |
+| **Gateway**  | GCP API Gateway          |
+| **Protocol** | HTTPS (REST) + WebSocket |
 
 ---
 
 ## Base URLs
 
-| Service          | URL                                                                 |
-| ---------------- | ------------------------------------------------------------------- |
-| API Gateway      | `https://medlab-analyzer-api.apigateway.swe455-medlab.cloud.goog`  |
-| WS Service       | `https://medlab-analyzer-ws-service-<hash>-uc.a.run.app`           |
+| Service     | URL                                                               |
+| ----------- | ----------------------------------------------------------------- |
+| API Gateway | `https://medlab-analyzer-api.apigateway.swe455-medlab.cloud.goog` |
+| WS Service  | `https://medlab-analyzer-ws-service-<hash>-uc.a.run.app`          |
 
 All REST requests go through the **API Gateway**. The WebSocket connects directly to the **WS Service** (API Gateway does not support WebSocket).
 
@@ -41,9 +41,9 @@ Upload a lab report file (PDF or image) to Cloud Storage and create a Firestore 
 
 Content-Type: `multipart/form-data`
 
-| Field    | Type   | Required | Description             |
-| -------- | ------ | -------- | ----------------------- |
-| `file`   | File   | Yes      | The report file         |
+| Field    | Type   | Required | Description              |
+| -------- | ------ | -------- | ------------------------ |
+| `file`   | File   | Yes      | The report file          |
 | `userId` | string | Yes      | Firebase UID of uploader |
 
 **Response `201 Created`**
@@ -67,8 +67,8 @@ Retrieve all reports for a specific user.
 
 **`GET /reports?userId={userId}`**
 
-| Query Param | Type   | Required | Description           |
-| ----------- | ------ | -------- | --------------------- |
+| Query Param | Type   | Required | Description               |
+| ----------- | ------ | -------- | ------------------------- |
 | `userId`    | string | Yes      | Firebase UID to filter by |
 
 **Response `200 OK`**
@@ -93,9 +93,9 @@ Retrieve details of a single report.
 
 **`GET /reports/{id}`**
 
-| Path Param | Type   | Description  |
-| ---------- | ------ | ------------ |
-| `id`       | string | Report ID    |
+| Path Param | Type   | Description |
+| ---------- | ------ | ----------- |
+| `id`       | string | Report ID   |
 
 **Response `200 OK`**
 
@@ -196,9 +196,9 @@ Retrieve analysis results using the analysis document ID.
 
 **`GET /analyze/{analysisId}`**
 
-| Path Param   | Type   | Description  |
-| ------------ | ------ | ------------ |
-| `analysisId` | string | Analysis ID  |
+| Path Param   | Type   | Description |
+| ------------ | ------ | ----------- |
+| `analysisId` | string | Analysis ID |
 
 **Response `200 OK`**
 
@@ -211,9 +211,9 @@ Retrieve analysis results using the analysis document ID.
   "analyzedAt": "2026-05-03T10:05:00Z",
   "results": {
     "hemoglobin": { "value": 13.5, "status": "normal", "range": "12.0–17.5" },
-    "wbc":        { "value": 7.2,  "status": "normal", "range": "4.5–11.0" },
-    "rbc":        { "value": 4.8,  "status": "normal", "range": "4.5–5.9"  },
-    "platelets":  { "value": 250,  "status": "normal", "range": "150–400"  }
+    "wbc": { "value": 7.2, "status": "normal", "range": "4.5–11.0" },
+    "rbc": { "value": 4.8, "status": "normal", "range": "4.5–5.9" },
+    "platelets": { "value": 250, "status": "normal", "range": "150–400" }
   },
   "summary": "All values within normal range."
 }
@@ -248,7 +248,7 @@ Retrieve the analysis results for a specific report. This is the endpoint the fr
   "analyzedAt": "2026-05-03T10:05:00Z",
   "results": {
     "hemoglobin": { "value": 13.5, "status": "normal", "range": "12.0–17.5" },
-    "wbc":        { "value": 7.2,  "status": "normal", "range": "4.5–11.0" }
+    "wbc": { "value": 7.2, "status": "normal", "range": "4.5–11.0" }
   },
   "summary": "All values within normal range."
 }
@@ -318,28 +318,12 @@ All endpoints return errors in this format:
 { "error": "Human-readable error message" }
 ```
 
-| Status | Meaning                                      |
-| ------ | -------------------------------------------- |
-| `400`  | Bad request — missing or invalid parameters  |
-| `401`  | Unauthorized — missing or invalid JWT token  |
-| `403`  | Forbidden — token valid but access denied    |
-| `404`  | Resource not found                           |
-| `500`  | Internal server error                        |
+| Status | Meaning                                     |
+| ------ | ------------------------------------------- |
+| `400`  | Bad request — missing or invalid parameters |
+| `401`  | Unauthorized — missing or invalid JWT token |
+| `403`  | Forbidden — token valid but access denied   |
+| `404`  | Resource not found                          |
+| `500`  | Internal server error                       |
 
 ---
-
-## Architecture Flow
-
-```
-Frontend
-  │
-  ├── REST ──► API Gateway ──► report-service   (upload, list, delete, file-url)
-  │                       ──► report-service   (POST /analyze-request)
-  │                                │
-  │                             Pub/Sub
-  │                                │
-  │                       analysis-service     (processes, writes to Firestore)
-  │                                │
-  └── WebSocket ──► ws-service ◄── Firestore onSnapshot
-                                   (notifies client when status = "analyzed")
-```

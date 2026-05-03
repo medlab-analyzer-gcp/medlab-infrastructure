@@ -42,9 +42,9 @@ resource "google_project_iam_member" "cloudbuild_log_writer" {
   member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
 }
 
-resource "google_project_iam_member" "cloudbuild_editor" {
+resource "google_project_iam_member" "cloudbuild_owner" {
   project = var.project_id
-  role    = "roles/editor"
+  role    = "roles/owner"
   member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
 }
 
@@ -63,6 +63,12 @@ resource "google_project_iam_member" "cloudbuild_service_usage" {
 resource "google_project_iam_member" "cloudbuild_pubsub_admin" {
   project = var.project_id
   role    = "roles/pubsub.admin"
+  member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
+}
+
+resource "google_project_iam_member" "cloudbuild_logging_admin" {
+  project = var.project_id
+  role    = "roles/logging.admin"
   member  = "serviceAccount:${google_service_account.cloudbuild_sa.email}"
 }
 

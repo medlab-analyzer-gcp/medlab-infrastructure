@@ -7,8 +7,6 @@
 # Usage:
 #   ./deploy.sh
 #
-# This script will prompt for required values and perform complete deployment
-#
 #===============================================================================
 
 set -e
@@ -19,7 +17,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 GRAY='\033[0;37m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Logging helpers
 log_info()    { echo -e "${CYAN}[INFO]${NC}  $1"; }
@@ -31,7 +29,6 @@ log_step()    { echo -e "\n${CYAN}━━━ $1 ━━━${NC}"; }
 # Configuration
 REGION="${REGION:-us-central1}"
 ENVIRONMENT="${ENVIRONMENT:-dev}"
-REPO_NAME="medlab-repo"
 
 echo -e "${CYAN}"
 echo "  ╔══════════════════════════════════════╗"
@@ -57,7 +54,7 @@ echo ""
 # Step 1: Set GCP Project
 #===============================================================================
 
-log_step "[1/10] Setting GCP project"
+log_step "[1/6] Setting GCP project"
 gcloud config set project $PROJECT_ID
 log_success "Project set to $PROJECT_ID"
 
@@ -65,7 +62,7 @@ log_success "Project set to $PROJECT_ID"
 # Step 2: Enable Required APIs
 #===============================================================================
 
-log_step "[2/10] Enabling required GCP APIs"
+log_step "[2/6] Enabling required GCP APIs"
 log_warn "This may take 2-3 minutes..."
 
 apis=(
@@ -79,6 +76,10 @@ apis=(
     "iam.googleapis.com"
     "cloudresourcemanager.googleapis.com"
     "compute.googleapis.com"
+    "pubsub.googleapis.com"
+    "apigateway.googleapis.com"
+    "servicemanagement.googleapis.com"
+    "servicecontrol.googleapis.com"
 )
 
 for api in "${apis[@]}"; do
@@ -92,7 +93,7 @@ log_success "All APIs enabled"
 # Step 3: Create Terraform State Bucket
 #===============================================================================
 
-log_step "[4/10] Creating Terraform state bucket"
+log_step "[3/6] Creating Terraform state bucket"
 
 if gsutil ls -b gs://$STATE_BUCKET &>/dev/null; then
     log_info "Bucket already exists, skipping"
@@ -103,102 +104,52 @@ else
 fi
 
 #===============================================================================
-# Step 5: Initialize Terraform
+# Step 4: Initialize Terraform
 #===============================================================================
 
-log_step "[5/10] Initializing Terraform"
+log_step "[4/6] Initializing Terraform"
 
 cd terraform
 terraform init -backend-config="bucket=$STATE_BUCKET"
 log_success "Terraform initialized"
 
 #===============================================================================
-# Step 6: Apply Terraform Infrastructure
+# Step 5: Apply Terraform Infrastructure
 #===============================================================================
 
-log_step "[6/10] Applying Terraform infrastructure"
+log_step "[5/6] Applying Terraform infrastructure"
 log_warn "This may take 10-15 minutes due to API Gateway provisioning..."
 
 terraform apply -var-file="environments/$ENVIRONMENT.tfvars" -auto-approve
 
-BUCKET_NAME=$(terraform output -raw reports_bucket_name)
+REPORT_URL=$(terraform output -raw report_service_url)
+ANALYSIS_URL=$(terraform output -raw analysis_service_url)
+WS_URL=$(terraform output -raw ws_service_url)
+GATEWAY_URL=$(terraform output -raw api_gateway_url)
 
 cd ..
 log_success "Infrastructure deployed"
 
 #===============================================================================
-# Step 7: Build Docker Images
+# Step 6: Trigger Cloud Build for each service
 #===============================================================================
 
-log_step "[7/10] Building Docker images"
+log_step "[6/6] Triggering Cloud Build for services"
+log_warn "This will build and deploy the real images (3-5 minutes)..."
 
-echo -e "  ${GRAY}Building report-service...${NC}"
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/report-service:latest ./services/report-service
+gcloud builds triggers run medlab-report-service-trigger --branch=main --region=global
+gcloud builds triggers run medlab-analysis-service-trigger --branch=main --region=global
+gcloud builds triggers run medlab-ws-service-trigger --branch=main --region=global
 
-echo -e "  ${GRAY}Building analysis-service...${NC}"
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/analysis-service:latest ./services/analysis-service
-
-echo -e "  ${GRAY}Building ws-service...${NC}"
-docker build -t $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/ws-service:latest ./services/ws-service
-
-log_success "All Docker images built"
+log_success "All service builds triggered"
+log_warn "Waiting for builds to complete..."
+sleep 300
 
 #===============================================================================
-# Step 8: Push Images to Artifact Registry
+# Health Checks
 #===============================================================================
 
-log_step "[8/10] Pushing images to Artifact Registry"
-
-gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
-
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/report-service:latest
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/analysis-service:latest
-docker push $REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/ws-service:latest
-
-log_success "All images pushed"
-
-#===============================================================================
-# Step 9: Deploy to Cloud Run
-#===============================================================================
-
-log_step "[9/10] Deploying services to Cloud Run"
-
-echo -e "  ${GRAY}Deploying report-service...${NC}"
-gcloud run deploy medlab-analyzer-report-service \
-    --image=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/report-service:latest \
-    --region=$REGION \
-    --platform=managed \
-    --allow-unauthenticated \
-    --set-env-vars="NODE_ENV=$ENVIRONMENT,PROJECT_ID=$PROJECT_ID,BUCKET_NAME=$BUCKET_NAME,LOG_LEVEL=info"
-
-echo -e "  ${GRAY}Deploying analysis-service...${NC}"
-gcloud run deploy medlab-analyzer-analysis-service \
-    --image=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/analysis-service:latest \
-    --region=$REGION \
-    --platform=managed \
-    --allow-unauthenticated \
-    --set-env-vars="NODE_ENV=$ENVIRONMENT,PROJECT_ID=$PROJECT_ID,BUCKET_NAME=$BUCKET_NAME,LOG_LEVEL=info"
-
-echo -e "  ${GRAY}Deploying ws-service...${NC}"
-gcloud run deploy medlab-analyzer-ws-service \
-    --image=$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/ws-service:latest \
-    --region=$REGION \
-    --platform=managed \
-    --allow-unauthenticated \
-    --timeout=3600 \
-    --set-env-vars="NODE_ENV=$ENVIRONMENT,PROJECT_ID=$PROJECT_ID,LOG_LEVEL=info"
-
-log_success "All services deployed to Cloud Run"
-
-#===============================================================================
-# Step 10: Health Checks
-#===============================================================================
-
-log_step "[10/10] Running health checks"
-
-REPORT_URL=$(gcloud run services describe medlab-analyzer-report-service --region=$REGION --format='value(status.url)')
-ANALYSIS_URL=$(gcloud run services describe medlab-analyzer-analysis-service --region=$REGION --format='value(status.url)')
-WS_URL=$(gcloud run services describe medlab-analyzer-ws-service --region=$REGION --format='value(status.url)')
+log_step "Running health checks"
 
 if curl -sf $REPORT_URL/health &>/dev/null; then
     log_success "Report service is healthy"
@@ -229,21 +180,19 @@ echo "  ║        Deployment Complete!          ║"
 echo "  ╚══════════════════════════════════════╝"
 echo -e "${NC}"
 echo -e "${YELLOW}Service URLs:${NC}"
+echo -e "  API Gateway:      ${CYAN}$GATEWAY_URL${NC}"
 echo -e "  Report Service:   ${CYAN}$REPORT_URL${NC}"
 echo -e "  Analysis Service: ${CYAN}$ANALYSIS_URL${NC}"
 echo -e "  WS Service:       ${CYAN}$WS_URL${NC}"
 echo ""
 echo -e "${YELLOW}Update frontend/.env with:${NC}"
-echo -e "  VITE_API_GATEWAY_URL=<from terraform output api_gateway_url>"
+echo -e "  VITE_API_GATEWAY_URL=$GATEWAY_URL"
 echo -e "  VITE_WS_SERVICE_URL=$WS_URL"
 echo ""
 echo -e "${YELLOW}Quick Test Commands:${NC}"
 echo -e "  curl $REPORT_URL/health"
 echo -e "  curl $ANALYSIS_URL/health"
 echo -e "  curl $WS_URL/health"
-echo ""
-echo -e "${YELLOW}View Logs:${NC}"
-echo -e "  gcloud run services logs read medlab-analyzer-report-service --region=$REGION --limit=50"
 echo ""
 log_success "Deployment completed successfully"
 echo ""

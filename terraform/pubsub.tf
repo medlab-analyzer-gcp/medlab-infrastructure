@@ -41,6 +41,19 @@ resource "google_pubsub_topic_iam_member" "report_service_publisher" {
   member  = "serviceAccount:${google_service_account.report_service_sa.email}"
 }
 
+# IAM: allow Pub/Sub to invoke analysis-service (required for push subscriptions)
+resource "google_cloud_run_v2_service_iam_member" "pubsub_invoker" {
+  project  = var.project_id
+  location = var.region
+  name     = google_cloud_run_v2_service.analysis_service.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-pubsub.iam.gserviceaccount.com"
+}
+
+data "google_project" "project" {
+  project_id = var.project_id
+}
+
 # ==============================================================================
 # WS Service — WebSocket + Firestore real-time
 # ==============================================================================
@@ -76,7 +89,7 @@ resource "google_cloud_run_v2_service" "ws_service" {
     timeout = "3600s"
 
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/medlab-repo/ws-service:latest"
+      image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
 
       ports {
         container_port = 8080
@@ -119,6 +132,10 @@ resource "google_cloud_run_v2_service" "ws_service" {
   }
 
   ingress = "INGRESS_TRAFFIC_ALL"
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
 
   depends_on = [
     google_project_service.required_apis,

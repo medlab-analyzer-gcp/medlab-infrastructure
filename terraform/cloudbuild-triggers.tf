@@ -4,87 +4,47 @@
 # Each repo has its own trigger — push to main = auto build and deploy
 # ==============================================================================
 
-# Infrastructure trigger — runs terraform apply on push
-resource "google_cloudbuild_trigger" "infrastructure" {
-  name        = "medlab-infrastructure-trigger"
-  description = "Runs terraform apply when infrastructure repo is updated"
-  location    = var.region
-
-  github {
-    owner = "medlab-analyzer-gcp"
-    name  = "medlab-infrastructure"
-    push {
-      branch = "^main$"
-    }
+locals {
+  triggers = {
+    "medlab-infrastructure-trigger"   = "medlab-infrastructure"
+    "medlab-report-service-trigger"   = "medlab-report-service"
+    "medlab-analysis-service-trigger" = "medlab-analysis-service"
+    "medlab-ws-service-trigger"       = "medlab-ws-service"
+    "medlab-frontend-trigger"         = "medlab-frontend"
   }
-
-  filename = "cloudbuild.yaml"
 }
 
-# Report service trigger — builds and deploys report-service on push
-resource "google_cloudbuild_trigger" "report_service" {
-  name        = "medlab-report-service-trigger"
-  description = "Builds and deploys report-service when code is pushed"
-  location    = var.region
+resource "null_resource" "cloudbuild_triggers" {
+  for_each = local.triggers
 
-  github {
-    owner = "medlab-analyzer-gcp"
-    name  = "medlab-report-service"
-    push {
-      branch = "^main$"
-    }
+  triggers = {
+    project_id = var.project_id
+    name       = each.key
+    repo       = each.value
   }
 
-  filename = "cloudbuild.yaml"
-}
-
-# Analysis service trigger — builds and deploys analysis-service on push
-resource "google_cloudbuild_trigger" "analysis_service" {
-  name        = "medlab-analysis-service-trigger"
-  description = "Builds and deploys analysis-service when code is pushed"
-  location    = var.region
-
-  github {
-    owner = "medlab-analyzer-gcp"
-    name  = "medlab-analysis-service"
-    push {
-      branch = "^main$"
-    }
+  provisioner "local-exec" {
+    interpreter = ["PowerShell", "-Command"]
+    command     = <<-EOT
+      $exists = gcloud builds triggers describe ${each.key} --region=global --project=${var.project_id} 2>&1
+      if ($LASTEXITCODE -ne 0) {
+        gcloud builds triggers create github `
+          --name=${each.key} `
+          --repo-name=${each.value} `
+          --repo-owner=medlab-analyzer-gcp `
+          --branch-pattern="^main$" `
+          --build-config=cloudbuild.yaml `
+          --region=global `
+          --project=${var.project_id}
+      } else {
+        Write-Host "${each.key} already exists, skipping"
+      }
+    EOT
   }
 
-  filename = "cloudbuild.yaml"
-}
-
-# WS service trigger — builds and deploys ws-service on push
-resource "google_cloudbuild_trigger" "ws_service" {
-  name        = "medlab-ws-service-trigger"
-  description = "Builds and deploys ws-service when code is pushed"
-  location    = var.region
-
-  github {
-    owner = "medlab-analyzer-gcp"
-    name  = "medlab-ws-service"
-    push {
-      branch = "^main$"
-    }
+  provisioner "local-exec" {
+    when        = destroy
+    interpreter = ["PowerShell", "-Command"]
+    command     = "gcloud builds triggers delete ${each.key} --region=global --project=${self.triggers.project_id} --quiet 2>&1 | Out-Null"
   }
-
-  filename = "cloudbuild.yaml"
-}
-
-# Frontend trigger — placeholder, frontend runs locally
-resource "google_cloudbuild_trigger" "frontend" {
-  name        = "medlab-frontend-trigger"
-  description = "Triggered when frontend code is pushed"
-  location    = var.region
-
-  github {
-    owner = "medlab-analyzer-gcp"
-    name  = "medlab-frontend"
-    push {
-      branch = "^main$"
-    }
-  }
-
-  filename = "cloudbuild.yaml"
 }

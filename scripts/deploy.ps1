@@ -28,7 +28,6 @@ param(
 )
 
 $ErrorActionPreference = "Continue"
-$RepoName = "medlab-repo"
 $StateBucket = "$ProjectId-terraform-state"
 
 # Logging helpers
@@ -50,13 +49,13 @@ Log-Info "Environment: $Environment"
 Write-Host ""
 
 # Step 1: Set GCP Project
-Log-Step "[1/9] Setting GCP project"
+Log-Step "[1/6] Setting GCP project"
 gcloud config set project $ProjectId
 if ($LASTEXITCODE -ne 0) { Log-Error "Failed to set project"; exit 1 }
 Log-Success "Project set to $ProjectId"
 
 # Step 2: Enable Required APIs
-Log-Step "[2/9] Enabling required GCP APIs"
+Log-Step "[2/6] Enabling required GCP APIs"
 Log-Warn "This may take 2-3 minutes..."
 
 $apis = @(
@@ -83,41 +82,8 @@ foreach ($api in $apis) {
 
 Log-Success "All APIs enabled"
 
-# Step 3: Build Docker Images
-Log-Step "[4/9] Building Docker images"
-
-gcloud auth configure-docker "$Region-docker.pkg.dev" --quiet
-
-Write-Host "  Building report-service..." -ForegroundColor Gray
-docker build -t "$Region-docker.pkg.dev/$ProjectId/$RepoName/report-service:latest" ./services/report-service
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to build report-service"; exit 1 }
-
-Write-Host "  Building analysis-service..." -ForegroundColor Gray
-docker build -t "$Region-docker.pkg.dev/$ProjectId/$RepoName/analysis-service:latest" ./services/analysis-service
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to build analysis-service"; exit 1 }
-
-Write-Host "  Building ws-service..." -ForegroundColor Gray
-docker build -t "$Region-docker.pkg.dev/$ProjectId/$RepoName/ws-service:latest" ./services/ws-service
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to build ws-service"; exit 1 }
-
-Log-Success "All Docker images built"
-
-# Step 5: Push Images to Artifact Registry
-Log-Step "[5/9] Pushing images to Artifact Registry"
-
-docker push "$Region-docker.pkg.dev/$ProjectId/$RepoName/report-service:latest"
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to push report-service"; exit 1 }
-
-docker push "$Region-docker.pkg.dev/$ProjectId/$RepoName/analysis-service:latest"
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to push analysis-service"; exit 1 }
-
-docker push "$Region-docker.pkg.dev/$ProjectId/$RepoName/ws-service:latest"
-if ($LASTEXITCODE -ne 0) { Log-Error "Failed to push ws-service"; exit 1 }
-
-Log-Success "All images pushed"
-
-# Step 6: Create Terraform State Bucket
-Log-Step "[6/9] Creating Terraform state bucket"
+# Step 3: Create Terraform State Bucket
+Log-Step "[3/6] Creating Terraform state bucket"
 
 $bucketCheck = gsutil ls -b "gs://$StateBucket" 2>&1
 if ($LASTEXITCODE -eq 0) {
@@ -130,7 +96,7 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Step 7: Terraform Init
-Log-Step "[7/9] Initializing Terraform"
+Log-Step "[4/6] Initializing Terraform"
 
 Push-Location terraform
 terraform init -backend-config="bucket=$StateBucket"
@@ -138,7 +104,7 @@ if ($LASTEXITCODE -ne 0) { Log-Error "terraform init failed"; Pop-Location; exit
 Log-Success "Terraform initialized"
 
 # Step 8: Terraform Apply
-Log-Step "[8/9] Applying Terraform infrastructure"
+Log-Step "[5/6] Applying Terraform infrastructure"
 Log-Warn "This may take 10-15 minutes due to API Gateway provisioning..."
 
 terraform apply -var-file="environments/$Environment.tfvars" -auto-approve
@@ -153,8 +119,20 @@ Pop-Location
 
 Log-Success "Infrastructure deployed"
 
-# Step 9: Health Checks
-Log-Step "[9/9] Running health checks"
+# Step 6: Trigger Cloud Build for each service
+Log-Step "[6/6] Triggering Cloud Build for services"
+Log-Warn "This will build and deploy the real images (3-5 minutes)..."
+
+gcloud builds triggers run medlab-report-service-trigger --branch=main --region=global
+gcloud builds triggers run medlab-analysis-service-trigger --branch=main --region=global
+gcloud builds triggers run medlab-ws-service-trigger --branch=main --region=global
+
+Log-Success "All service builds triggered"
+Log-Warn "Waiting for builds to complete..."
+Start-Sleep -Seconds 300
+
+# Step 10: Health Checks
+Log-Step "Running health checks"
 
 Start-Sleep -Seconds 15
 

@@ -215,7 +215,7 @@ resource "google_cloud_run_v2_service" "report_service" {
     }
     
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/medlab-repo/report-service:latest"
+      image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
       
       ports {
         container_port = 8080
@@ -277,7 +277,11 @@ resource "google_cloud_run_v2_service" "report_service" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
-  
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
+
   depends_on = [
     google_project_service.required_apis,
     google_storage_bucket.reports_bucket,
@@ -299,7 +303,7 @@ resource "google_cloud_run_v2_service" "analysis_service" {
     }
     
     containers {
-      image = "${var.region}-docker.pkg.dev/${var.project_id}/medlab-repo/analysis-service:latest"
+      image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
       
       ports {
         container_port = 8080
@@ -361,7 +365,11 @@ resource "google_cloud_run_v2_service" "analysis_service" {
     type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
     percent = 100
   }
-  
+
+  lifecycle {
+    ignore_changes = [template[0].containers[0].image]
+  }
+
   depends_on = [
     google_project_service.required_apis,
     google_storage_bucket.reports_bucket,

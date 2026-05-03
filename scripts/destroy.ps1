@@ -87,7 +87,7 @@ foreach ($service in $services) {
 
 Log-Success "Cloud Run services deleted"
 
-# Step 3: Delete Container Images
+# Step 4: Delete Container Images
 Log-Step "[3/6] Deleting container images"
 
 $images = @("report-service", "analysis-service", "ws-service")

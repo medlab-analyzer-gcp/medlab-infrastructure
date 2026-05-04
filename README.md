@@ -46,6 +46,8 @@ Each service repository contains its own `cloudbuild.yaml` for automated CI/CD o
 
 ## Architecture
 
+![System Architecture](docs/assets/architecture.png)
+
 ### Services
 
 | Service              | Platform          | Responsibility                                                      |
@@ -395,6 +397,26 @@ Each service has its own repository with this structure:
 ├── package.json
 └── README.md
 ```
+
+---
+
+## Why a Deploy Script Alongside Terraform?
+
+All cloud infrastructure in this project is provisioned by Terraform — Cloud Run, Firestore, Cloud Storage, Pub/Sub, API Gateway, IAM, and Firebase Auth. However, three bootstrap tasks **cannot** be expressed in Terraform and must be handled by the deploy script:
+
+**1. Enabling bootstrap APIs (`gcloud services enable`)**
+
+Terraform needs `cloudresourcemanager.googleapis.com` enabled before it can communicate with GCP at all. You cannot use Terraform to enable the very APIs that Terraform needs to start — so the script enables them first as a one-time bootstrap. Terraform then re-declares and manages them going forward.
+
+**2. Creating the Terraform state bucket (`gsutil mb`)**
+
+Terraform stores its state (a record of every resource it manages) in a GCS bucket. This bucket must exist before `terraform init` can run. It is a fundamental limitation of Terraform: you cannot use Terraform to create its own state backend. This bootstrap step is universally accepted practice across all Terraform projects.
+
+**3. Triggering the first Cloud Build run (`gcloud builds triggers run`)**
+
+Terraform is **declarative** — it manages what *exists*, not what *runs*. The Cloud Build triggers are fully defined and managed by Terraform, but actually firing them is an imperative action with no Terraform equivalent. On a fresh deployment there is no git push to trigger the pipeline automatically, so the script fires the triggers once to build and deploy the real Docker images.
+
+Everything else — infrastructure creation, configuration, IAM, networking — is handled exclusively by Terraform.
 
 ---
 

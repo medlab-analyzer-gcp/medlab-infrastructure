@@ -75,15 +75,6 @@ medlab-analyzer-gcp/
 - Each service is independently versioned and deployed
 - Changes to one service do not trigger builds in others
 - Each repo maps to exactly one Cloud Build trigger
-- Infrastructure code is fully separated from application code
-
-**Demonstration:**
-
-```bash
-# Each repo has its own git history
-git log --oneline  # Independent version history per service
-git remote -v      # Each repo has its own GitHub remote
-```
 
 ![GitHub organization showing all 5 repositories](assets/factor-01-codebase.png)
 
@@ -101,7 +92,7 @@ _Explicitly declare and isolate dependencies_
 
 Each service has its own `package.json` with exact versions:
 
-**Report Service** ([medlab-report-service/package.json](medlab-report-service/package.json)):
+**Report Service** (`medlab-report-service/package.json`):
 
 ```json
 {
@@ -122,7 +113,7 @@ Each service has its own `package.json` with exact versions:
 
 Docker containers include all dependencies:
 
-**Dockerfile** ([medlab-report-service/Dockerfile](medlab-report-service/Dockerfile)):
+**Dockerfile** (`medlab-report-service/Dockerfile`):
 
 ```dockerfile
 FROM node:20-slim
@@ -136,13 +127,6 @@ RUN npm ci --only=production && npm cache clean --force
 # Copy application code
 COPY . .
 ```
-
-**Evidence:**
-
-- No system-wide dependencies assumed
-- Each container is self-contained
-- `npm ci` ensures reproducible builds
-- No reliance on host system libraries
 
 **Benefits:**
 
@@ -164,7 +148,7 @@ _Store config in environment variables_
 
 **✓ Environment-Based Configuration:**
 
-**Service Code** ([medlab-report-service/index.js](medlab-report-service/index.js)):
+**Service Code** (`medlab-report-service/index.js`):
 
 ```javascript
 // Configuration from environment variables
@@ -223,23 +207,16 @@ env {
 }
 ```
 
-**Evidence:**
-
-- Zero hardcoded credentials
-- Zero hardcoded URLs or endpoints
-- All configuration via environment variables
-- Easy to change between dev/staging/prod
-
 ![Cloud Run environment variables in GCP Console](assets/factor-03-configuration.png)
 
 **Configuration Matrix:**
 
-| Configuration         | Dev   | Staging | Production |
-| --------------------- | ----- | ------- | ---------- |
-| LOG_LEVEL             | debug | info    | error      |
-| ALLOW_UNAUTHENTICATED | true  | false   | false      |
-| MAX_INSTANCES         | 5     | 20      | 100        |
-| MIN_INSTANCES         | 0     | 1       | 2          |
+| Configuration         | Dev   | Production |
+| --------------------- | ----- | ---------- |
+| LOG_LEVEL             | debug | info       |
+| ALLOW_UNAUTHENTICATED | true  | false      |
+| MAX_INSTANCES         | 5     | 100        |
+| MIN_INSTANCES         | 0     | 0          |
 
 ---
 
@@ -261,7 +238,7 @@ The application uses five backing services, all configurable via environment var
 4. **Firebase Auth** (user authentication)
 5. **API Gateway** (single HTTP entry point)
 
-**Code Implementation** ([medlab-report-service/index.js](medlab-report-service/index.js)):
+**Code Implementation** (`medlab-report-service/index.js`):
 
 ```javascript
 // Backing services configured via environment
@@ -288,13 +265,6 @@ FIRESTORE_DATABASE=(default)
 BUCKET_NAME=your-prod-project-id-reports
 FIRESTORE_DATABASE=(default)
 ```
-
-**Evidence:**
-
-- No hardcoded connection strings
-- Services can be swapped without code changes
-- Local development can use different backends
-- Easy to switch between dev/staging/prod databases
 
 ![Firestore database in GCP Console (example of a backing service)](assets/factor-04-backing-services.png)
 
@@ -390,17 +360,6 @@ gcloud run deploy service --image=repo/service:$SHA
 
 ![Cloud Build Triggers showing 5 triggers managed by Terraform](assets/factor-05-build-triggers.png)
 
-**Release Tracking:**
-
-```bash
-# View release history
-gcloud run revisions list --service=report-service
-
-# Rollback to previous release
-gcloud run services update-traffic report-service \
-  --to-revisions=report-service-00042=100
-```
-
 ---
 
 ## Factor 6: Processes
@@ -413,7 +372,7 @@ _Execute the app as one or more stateless processes_
 
 **✓ Stateless Service Design:**
 
-**Code Implementation** ([medlab-report-service/index.js](medlab-report-service/index.js)):
+**Code Implementation** (`medlab-report-service/index.js`):
 
 ```javascript
 // NO in-memory session storage
@@ -465,18 +424,6 @@ scaling {
 }
 ```
 
-**Demonstration:**
-
-```bash
-# Kill all instances
-gcloud run services update report-service --max-instances=0
-
-# Scale back up
-gcloud run services update report-service --max-instances=10
-
-# No data loss - all state in Firestore/Cloud Storage
-```
-
 ---
 
 ## Factor 7: Port Binding
@@ -489,7 +436,7 @@ _Export services via port binding_
 
 **✓ Self-Contained HTTP Server:**
 
-**Service Code** ([medlab-report-service/index.js](medlab-report-service/index.js)):
+**Service Code** (`medlab-report-service/index.js`):
 
 ```javascript
 const express = require("express");
@@ -506,7 +453,7 @@ const server = app.listen(PORT, () => {
 
 **✓ Container Port Configuration:**
 
-**Dockerfile** ([medlab-report-service/Dockerfile](medlab-report-service/Dockerfile)):
+**Dockerfile** (`medlab-report-service/Dockerfile`):
 
 ```dockerfile
 # Expose port for documentation
@@ -527,13 +474,6 @@ containers {
   }
 }
 ```
-
-**Evidence:**
-
-- No external web server (Apache/Nginx) required
-- Service is self-contained and portable
-- Can run anywhere that supports containers
-- Port configurable via environment variable
 
 **Service URLs:**
 
@@ -581,32 +521,6 @@ Cloud Run automatically:
 - Distributes requests across instances
 - Handles instance lifecycle
 
-**Architecture:**
-
-```
-                  ┌─────────────┐
-Requests ───▶    │   Traffic   │
-                  │  Splitter   │
-                  └──────┬──────┘
-                         │
-        ┌────────────────┼────────────────┐
-        │                │                │
-        ▼                ▼                ▼
-   ┌────────┐      ┌────────┐      ┌────────┐
-   │Instance│      │Instance│      │Instance│
-   │   1    │      │   2    │      │   3    │
-   └────────┘      └────────┘      └────────┘
-```
-
-**Concurrency Settings:**
-
-```bash
-# Configure concurrent requests per instance
-gcloud run services update report-service \
-  --concurrency=80 \
-  --max-instances=100
-```
-
 **✓ WebSocket Horizontal Scaling Solution:**
 
 ws-service solves the classic WebSocket scaling problem on Cloud Run. Each instance independently subscribes to Firestore onSnapshot for the connected user. When analysis-service writes `status: "analyzed"` to Firestore, all ws-service instances are notified simultaneously - only the instance holding the user's socket pushes the event.
@@ -618,19 +532,6 @@ Firestore update
       ├──► ws-service Instance 2 (no match)         → ignores
       └──► ws-service Instance N (no match)         → ignores
 ```
-
-**Evidence:**
-
-- Stateless design enables horizontal scaling (Factor 6)
-- Auto-scaling based on CPU/requests
-- ws-service scales without shared state via Firestore onSnapshot coordination
-- Can handle variable loads efficiently
-
-**Performance:**
-
-- **Low traffic:** 0-1 instances (cost savings)
-- **Medium traffic:** 2-10 instances
-- **High traffic:** Automatically scales to 100+ instances
 
 ![Cloud Run metrics showing instance scaling](assets/factor-08-concurrency.png)
 
@@ -646,7 +547,7 @@ _Maximize robustness with fast startup and graceful shutdown_
 
 **✓ Fast Startup:**
 
-**Optimized Dockerfile** ([medlab-report-service/Dockerfile](medlab-report-service/Dockerfile)):
+**Optimized Dockerfile** (`medlab-report-service/Dockerfile`):
 
 ```dockerfile
 # Minimal base image
@@ -663,7 +564,7 @@ CMD ["node", "index.js"]
 
 **✓ Graceful Shutdown:**
 
-**Service Code** ([medlab-report-service/index.js](medlab-report-service/index.js)):
+**Service Code** (`medlab-report-service/index.js`):
 
 ```javascript
 // Handle SIGTERM for graceful shutdown
@@ -720,18 +621,7 @@ app.get("/health", (req, res) => {
 
 ![Cloud Build successful build with health check passed](assets/factor-09-disposability.png)
 
-*Cloud Build pipeline showing all 4 steps: build → push → deploy → health-check. The health-check step (step 3) passes in 2 seconds, confirming the service starts fast and responds on `/health` — demonstrating disposability.*
-
-**Demonstration:**
-
-```bash
-# Kill instance
-gcloud run services delete report-service
-
-# Recreate (fast startup)
-./scripts/deploy.sh
-# Time: ~5-8 minutes for full system
-```
+_Cloud Build pipeline showing all 4 steps: build → push → deploy → health-check. The health-check step (step 3) passes in 2 seconds, confirming the service starts fast and responds on `/health` — demonstrating disposability._
 
 ---
 
@@ -739,7 +629,7 @@ gcloud run services delete report-service
 
 ### Requirement
 
-_Keep development, staging, and production as similar as possible_
+_Keep development and production as similar as possible_
 
 ### Implementation
 
@@ -748,21 +638,20 @@ _Keep development, staging, and production as similar as possible_
 **Single Dockerfile per Service:**
 
 - Development: Same Dockerfile
-- Staging: Same Dockerfile
 - Production: Same Dockerfile
 
 Only difference: Environment variables (Factor 3)
 
 **✓ Environment Parity Matrix:**
 
-| Aspect              | Development   | Staging       | Production    |
-| ------------------- | ------------- | ------------- | ------------- |
-| **Container Image** | ✓ Same        | ✓ Same        | ✓ Same        |
-| **Platform**        | Cloud Run     | Cloud Run     | Cloud Run     |
-| **Database**        | Firestore     | Firestore     | Firestore     |
-| **Storage**         | Cloud Storage | Cloud Storage | Cloud Storage |
-| **Code**            | ✓ Same        | ✓ Same        | ✓ Same        |
-| **Dependencies**    | ✓ Same        | ✓ Same        | ✓ Same        |
+| Aspect              | Development   | Production    |
+| ------------------- | ------------- | ------------- |
+| **Container Image** | ✓ Same        | ✓ Same        |
+| **Platform**        | Cloud Run     | Cloud Run     |
+| **Database**        | Firestore     | Firestore     |
+| **Storage**         | Cloud Storage | Cloud Storage |
+| **Code**            | ✓ Same        | ✓ Same        |
+| **Dependencies**    | ✓ Same        | ✓ Same        |
 
 **Different:** Only configuration
 
@@ -801,7 +690,7 @@ log_level    = "info"
 - No "works in dev but fails in prod" issues
 - Same backing services (Firestore, Cloud Storage)
 - Same container images across environments
-- Easy promotion: dev → staging → prod
+- Easy promotion: dev → prod
 
 **Time Gap:**
 
@@ -825,7 +714,7 @@ _Treat logs as event streams_
 
 **✓ Stdout/Stderr Logging:**
 
-**Logger Configuration** ([medlab-report-service/src/utils/logger.js](medlab-report-service/src/utils/logger.js)):
+**Logger Configuration** (`medlab-report-service/src/utils/logger.js`):
 
 ```javascript
 const winston = require("winston");
@@ -945,7 +834,7 @@ Each script runs once, completes its task, and exits — no persistent process r
 
 ![Terminal showing deploy script running as a one-off admin process](assets/factor-12-admin-processes.png)
 
-*The deploy script (`deploy.ps1`) runs as a one-off process — it provisions infrastructure, triggers builds, and exits. Each run is independent with no persistent state, satisfying the Admin Processes factor.*
+_The deploy script (`deploy.ps1`) runs as a one-off process — it provisions infrastructure, triggers builds, and exits. Each run is independent with no persistent state, satisfying the Admin Processes factor._
 
 ---
 
@@ -1096,7 +985,7 @@ _Gain visibility into application behavior through observability_
 
 **✓ Structured Logging:**
 
-**Logger Implementation** ([medlab-report-service/src/utils/logger.js](medlab-report-service/src/utils/logger.js)):
+**Logger Implementation** (`medlab-report-service/src/utils/logger.js`):
 
 ```javascript
 logger.info({
@@ -1281,7 +1170,7 @@ const auth = getAuth(app);
 
 **✓ Token Validation:**
 
-**Middleware Implementation** ([medlab-report-service/src/middleware/auth.js](medlab-report-service/src/middleware/auth.js)):
+**Middleware Implementation** (`medlab-report-service/src/middleware/auth.js`):
 
 ```javascript
 const authMiddleware = async (req, res, next) => {
@@ -1414,28 +1303,28 @@ resource "google_storage_bucket_iam_member" "analysis_service_storage" {
 
 ![IAM Service Accounts in GCP Console](assets/factor-15-auth-identity.png)
 
-*GCP IAM Service Accounts provisioned by Terraform — each service has its own dedicated identity with least-privilege access. `medlab-report-service` can write to Cloud Storage and Firestore, `medlab-analysis-service` can only read Storage and write Firestore, `medlab-ws-service` can only read Firestore, and `medlab-cloudbuild` runs the CI/CD pipeline. No service shares credentials with another.*
+_GCP IAM Service Accounts provisioned by Terraform — each service has its own dedicated identity with least-privilege access. `medlab-report-service` can write to Cloud Storage and Firestore, `medlab-analysis-service` can only read Storage and write Firestore, `medlab-ws-service` can only read Firestore, and `medlab-cloudbuild` runs the CI/CD pipeline. No service shares credentials with another._
 
 ---
 
 ## Summary Table
 
-| Factor               | Implementation                                                  | Evidence Location                       |
-| -------------------- | --------------------------------------------------------------- | --------------------------------------- |
-| 1. Codebase          | One repo per service (5 repos in medlab-analyzer-gcp org)       | GitHub org: medlab-analyzer-gcp         |
-| 2. Dependencies      | package.json + Docker                                           | `medlab-report-service/package.json`, `Dockerfile` |
-| 3. Configuration     | Environment variables injected at Cloud Run deploy time         | `terraform/variables.tf`, Cloud Run env vars |
-| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub as attached resources         | `terraform/main.tf`, `terraform/pubsub.tf` |
-| 5. Build/Release/Run | Each service has its own cloudbuild.yaml, 5 Terraform triggers  | Each repo's `cloudbuild.yaml`, `terraform/cloudbuild-triggers.tf` |
-| 6. Processes         | Stateless services — all state in Firestore/Cloud Storage       | `medlab-report-service/index.js`        |
-| 7. Port Binding      | Self-contained HTTP server on PORT env var                      | `medlab-report-service/index.js`        |
-| 8. Concurrency       | Horizontal scaling + WebSocket scaling via Firestore onSnapshot | `terraform/main.tf`, `medlab-ws-service` |
-| 9. Disposability     | Fast startup, graceful SIGTERM shutdown                         | `medlab-report-service/index.js`        |
-| 10. Dev/Prod Parity  | Same containers, different var-files per environment            | `terraform/environments/dev.tfvars`, `prod.tfvars` |
-| 11. Logs             | Structured JSON to stdout, collected by Cloud Logging           | `medlab-report-service/src/utils/logger.js` |
-| 12. Admin Processes  | One-off tasks via deploy/destroy scripts and Cloud Build        | `scripts/deploy.ps1`, `scripts/destroy.ps1` |
-| 13. API First        | REST APIs via API Gateway + OpenAPI spec                        | `terraform/api-spec.yaml`               |
-| 14. Telemetry        | Cloud Logging + Cloud Monitoring metrics                        | Cloud Run Observability tab             |
+| Factor               | Implementation                                                  | Evidence Location                                                   |
+| -------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------- |
+| 1. Codebase          | One repo per service (5 repos in medlab-analyzer-gcp org)       | GitHub org: medlab-analyzer-gcp                                     |
+| 2. Dependencies      | package.json + Docker                                           | `medlab-report-service/package.json`, `Dockerfile`                  |
+| 3. Configuration     | Environment variables injected at Cloud Run deploy time         | `terraform/variables.tf`, Cloud Run env vars                        |
+| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub as attached resources         | `terraform/main.tf`, `terraform/pubsub.tf`                          |
+| 5. Build/Release/Run | Each service has its own cloudbuild.yaml, 5 Terraform triggers  | Each repo's `cloudbuild.yaml`, `terraform/cloudbuild-triggers.tf`   |
+| 6. Processes         | Stateless services — all state in Firestore/Cloud Storage       | `medlab-report-service/index.js`                                    |
+| 7. Port Binding      | Self-contained HTTP server on PORT env var                      | `medlab-report-service/index.js`                                    |
+| 8. Concurrency       | Horizontal scaling + WebSocket scaling via Firestore onSnapshot | `terraform/main.tf`, `medlab-ws-service`                            |
+| 9. Disposability     | Fast startup, graceful SIGTERM shutdown                         | `medlab-report-service/index.js`                                    |
+| 10. Dev/Prod Parity  | Same containers, different var-files per environment            | `terraform/environments/dev.tfvars`, `prod.tfvars`                  |
+| 11. Logs             | Structured JSON to stdout, collected by Cloud Logging           | `medlab-report-service/src/utils/logger.js`                         |
+| 12. Admin Processes  | One-off tasks via deploy/destroy scripts and Cloud Build        | `scripts/deploy.ps1`, `scripts/destroy.ps1`                         |
+| 13. API First        | REST APIs via API Gateway + OpenAPI spec                        | `terraform/api-spec.yaml`                                           |
+| 14. Telemetry        | Cloud Logging + Cloud Monitoring metrics                        | Cloud Run Observability tab                                         |
 | 15. Auth/Authz       | Firebase Auth for users + GCP IAM for services                  | `medlab-report-service/src/middleware/auth.js`, `terraform/main.tf` |
 
 ---
@@ -1451,4 +1340,3 @@ The Medical Lab Analyzer application fully complies with all 15 factors of the c
 - **Security best practices** (IAM, service accounts, authentication)
 
 The application can be **completely destroyed and recreated** using the provided automation scripts (`destroy.ps1` / `deploy.ps1`), demonstrating true infrastructure reproducibility. The restore time is approximately 15-20 minutes, primarily due to GCP API Gateway provisioning time (~10-15 min), which is a platform constraint not a design limitation.
-

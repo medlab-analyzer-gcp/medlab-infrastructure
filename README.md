@@ -1,9 +1,13 @@
 # Medical Lab Analyzer - GCP Cloud Infrastructure
 
-[![GCP](https://img.shields.io/badge/GCP-Cloud%20Run-blue)](https://cloud.google.com/run)
-[![Terraform](https://img.shields.io/badge/IaC-Terraform-purple)](https://www.terraform.io/)
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-Cloud%20Build-orange)](https://cloud.google.com/build)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GCP](https://img.shields.io/badge/GCP-Cloud%20Run-4285F4?logo=googlecloud&logoColor=white)](https://cloud.google.com/run)
+[![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)](https://www.terraform.io/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-Cloud%20Build-F4B400?logo=googlecloud&logoColor=white)](https://cloud.google.com/build)
+[![Firebase](https://img.shields.io/badge/Auth-Firebase-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com/)
+[![Node.js](https://img.shields.io/badge/Backend-Node.js%2020-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Container-Docker-2496ED?logo=docker&logoColor=white)](https://www.docker.com/)
+[![Firestore](https://img.shields.io/badge/Database-Firestore-FF6F00?logo=googlecloud&logoColor=white)](https://cloud.google.com/firestore)
+[![PubSub](https://img.shields.io/badge/Messaging-Pub%2FSub-34A853?logo=googlecloud&logoColor=white)](https://cloud.google.com/pubsub)
 
 ## SWE455 Course Project
 
@@ -102,23 +106,23 @@ On push to `main`, Cloud Build automatically builds Docker images and deploys to
 
 ## 15-Factor Compliance
 
-| Factor               | Implementation                                                                                                |
-| -------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 1. Codebase          | 5 independent Git repositories, one per service/infrastructure                                                |
-| 2. Dependencies      | `package.json` + `package-lock.json` + Docker containers                                                      |
-| 3. Configuration     | Environment variables via Terraform and `.env` files                                                          |
-| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub - all configurable and swappable                                            |
-| 5. Build/Release/Run | Cloud Build CI/CD - automated build and deploy on push to main                                                |
-| 6. Processes         | Stateless Cloud Run services (containers can be destroyed/recreated anytime)                                  |
-| 7. Port Binding      | Self-contained Express HTTP servers, port binding via environment variable                                    |
-| 8. Concurrency       | Cloud Run auto-scaling (0-100 instances per service); ws-service scales horizontally via Firestore onSnapshot |
-| 9. Disposability     | Fast startup (<5s), SIGTERM graceful shutdown                                                                 |
-| 10. Dev/Prod Parity  | Same Terraform code, different `.tfvars` files (dev/prod)                                                     |
-| 11. Logs             | Winston logger → stdout → Cloud Logging (structured JSON logs)                                                |
-| 12. Admin Processes  | One-off Cloud Run jobs (can run any admin task in same environment)                                           |
-| 13. API First        | RESTful APIs with OpenAPI 2.0 spec, API Gateway enforces contract                                             |
-| 14. Telemetry        | Cloud Logging + Cloud Monitoring + health endpoints (`/health`)                                               |
-| 15. Auth/Authz       | Firebase Auth (user authentication) + GCP IAM (service accounts and permissions)                              |
+| Factor               | Implementation                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 1. Codebase          | 5 independent Git repositories, one per service/infrastructure                                                                 |
+| 2. Dependencies      | `package.json` + `package-lock.json` + Docker containers                                                                       |
+| 3. Configuration     | Environment variables via Terraform and `.env` files                                                                           |
+| 4. Backing Services  | Firestore, Cloud Storage, Pub/Sub - all configurable and swappable                                                             |
+| 5. Build/Release/Run | Cloud Build CI/CD - automated build and deploy on push to main                                                                 |
+| 6. Processes         | Stateless Cloud Run services (containers can be destroyed/recreated anytime)                                                   |
+| 7. Port Binding      | Self-contained Express HTTP servers, port binding via environment variable                                                     |
+| 8. Concurrency       | Cloud Run auto-scaling (0-100 instances per service); ws-service scales horizontally via Firestore onSnapshot                  |
+| 9. Disposability     | Node.js/Express container is ready to serve requests in <5s after Cloud Run launches it; handles SIGTERM for graceful shutdown |
+| 10. Dev/Prod Parity  | Same Terraform code, different `.tfvars` files (dev/prod)                                                                      |
+| 11. Logs             | Winston logger → stdout → Cloud Logging (structured JSON logs)                                                                 |
+| 12. Admin Processes  | One-off scripts (`deploy.ps1`, `destroy.ps1`) and Cloud Build runs as isolated, stateless processes                            |
+| 13. API First        | RESTful APIs with OpenAPI 2.0 spec, API Gateway enforces contract                                                              |
+| 14. Telemetry        | Cloud Logging + Cloud Monitoring + health endpoints (`/health`)                                                                |
+| 15. Auth/Authz       | Firebase Auth (user authentication) + GCP IAM (service accounts and permissions)                                               |
 
 **Full Documentation:** See [docs/15-FACTOR-COMPLIANCE.md](docs/15-FACTOR-COMPLIANCE.md) for detailed implementation evidence and code examples.
 
@@ -427,43 +431,6 @@ gcloud builds list --project=YOUR-PROJECT-ID --limit=10
 
 ---
 
-## Monitoring & Debugging
-
-### Health Checks
-
-```powershell
-# Check service health via API Gateway
-curl https://YOUR_GATEWAY_URL/health
-
-# Check individual services
-gcloud run services describe medlab-analyzer-report-service --region=us-central1
-gcloud run services describe medlab-analyzer-analysis-service --region=us-central1
-gcloud run services describe medlab-analyzer-ws-service --region=us-central1
-```
-
-### View Logs
-
-```powershell
-# View logs for specific service
-gcloud run services logs read medlab-analyzer-report-service --region=us-central1
-gcloud run services logs read medlab-analyzer-analysis-service --region=us-central1
-gcloud run services logs read medlab-analyzer-ws-service --region=us-central1
-
-# View Cloud Build logs
-gcloud builds log <BUILD_ID>
-```
-
-### GCP Console Links
-
-- **Cloud Run:** https://console.cloud.google.com/run
-- **Cloud Build:** https://console.cloud.google.com/cloud-build
-- **Logs:** https://console.cloud.google.com/logs
-- **Monitoring:** https://console.cloud.google.com/monitoring
-- **Firestore:** https://console.cloud.google.com/firestore
-- **Cloud Storage:** https://console.cloud.google.com/storage
-
----
-
 ## Documentation
 
 | Document                                                             | Description                                   |
@@ -472,81 +439,6 @@ gcloud builds log <BUILD_ID>
 | [API.md](docs/API.md)                                                | Full API reference with examples              |
 | [AI_DEVELOPMENT_LOG.md](AI_DEVELOPMENT_LOG.md)                       | Transparent AI usage log                      |
 | [terraform/cloudbuild-triggers.tf](terraform/cloudbuild-triggers.tf) | CI/CD trigger definitions                     |
-
----
-
-## Demo Script (For Presentation)
-
-This script demonstrates Infrastructure as Code by destroying and recreating everything:
-
-```powershell
-# 1. Verify everything is running
-gcloud run services list --region=us-central1 --project=swe455-medlab
-
-# 2. Test API health
-curl https://YOUR_GATEWAY_URL/health
-
-# 3. DESTROY everything (30 seconds)
-cd medlab-infrastructure
-.\scripts\destroy.ps1 -ProjectId "swe455-medlab" -Force
-
-# 4. Verify destruction
-gcloud run services list --region=us-central1 --project=swe455-medlab
-# Should show: Listed 0 items
-
-# 5. RESTORE from scratch (10-15 minutes)
-.\scripts\deploy.ps1 -ProjectId "swe455-medlab"
-
-# 6. Verify restoration
-gcloud run services list --region=us-central1 --project=swe455-medlab
-curl https://YOUR_GATEWAY_URL/health
-```
-
-This demonstrates:
-
-- **Factor 5 (Build/Release/Run):** Automated deployment
-- **Factor 10 (Dev/Prod Parity):** Same infrastructure code for all environments
-- **Complete IaC:** No manual configuration required
-
----
-
-## Multi-Repository Architecture Benefits
-
-### Why 5 Separate Repositories?
-
-**Independent Deployment Cycles**
-
-- Each service can be updated without affecting others
-- Faster CI/CD (only rebuild what changed)
-- Reduced risk of breaking other services
-
-**Clear Service Boundaries**
-
-- Each repository owns one service
-- No accidental dependencies between services
-- Easier code reviews (smaller, focused changes)
-
-**Scalable Team Structure**
-
-- Different teams can own different services
-- Independent release schedules
-- Parallel development without merge conflicts
-
-**CI/CD Efficiency**
-
-- Push to `medlab-report-service` → only report service rebuilds
-- Infrastructure changes don't trigger service rebuilds
-- Faster feedback loops
-
-### Repository Relationships
-
-```
-medlab-infrastructure (Terraform)
-    ↓ provisions
-[Cloud Run + Pub/Sub + Storage + Firestore]
-    ↑ deployed to
-[5 service repositories with their own CI/CD]
-```
 
 ---
 
@@ -564,13 +456,11 @@ This project was developed with assistance from **Claude Code (Claude Sonnet 4.6
 - Code structure and best practices
 - Documentation formatting
 
-**What Students Did:**
+**What We Did:**
 
 - All design decisions (architecture, service separation, event-driven design)
-- Writing and debugging service logic
 - Understanding cloud concepts and implementing 15-Factor methodology
 - Testing and iterating on the implementation
-- Problem-solving when errors occurred
 
 ### Full Transparency Log
 
@@ -580,10 +470,3 @@ See [AI_DEVELOPMENT_LOG.md](AI_DEVELOPMENT_LOG.md) for:
 - Questions asked and answers received
 - Problems encountered and how they were solved
 - What was learned from each interaction
-
-This transparency demonstrates:
-
-- ✅ Ethical AI use as a learning tool
-- ✅ Student agency in design and implementation
-- ✅ Understanding of cloud concepts (not just copying code)
-- ✅ Academic integrity compliance
